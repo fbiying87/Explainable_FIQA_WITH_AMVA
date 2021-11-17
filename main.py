@@ -21,42 +21,6 @@ import math
 import cv2
 import pandas as pd
 
-class UnNormalize(object):
-    def __init__(self, mean, std):
-        self.mean = mean
-        self.std = std
-
-    def __call__(self, tensor):
-        """
-        Args:
-            tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
-        Returns:
-            Tensor: Normalized image.
-        """
-        for t, m, s in zip(tensor, self.mean, self.std):
-            t.mul_(s).add_(m)
-            # The normalize code -> t.sub_(m).div_(s)
-        return tensor
-
-inv_transform = UnNormalize(mean=[0., 0., 0.],
-                            std=[1., 1., 1.])
-
-class MeanFaceData(Dataset):
-    def __init__(self, data_path=None):
-        self.data_path = data_path
-        self.transform = transforms.Compose([
-                            transforms.Resize(112),
-                            transforms.ToTensor(),
-                            ])
-
-    def __len__(self):
-        return len(self.data_path)
-
-    def __getitem__(self, idx):
-        image_set = Image.open(self.data_path[idx])
-        image_tensor = self.transform(image_set)
-        return image_tensor
-
 def get_item(img_path):
 
     transform = transforms.Compose([
@@ -160,7 +124,7 @@ def main():
 
         # overlap with groundtruth image
         img_org = get_item(
-            "data/0015_01.jpg")
+            "data/n004999/0015_01.jpg")
         # single image activation map
         hmp = 0.5 * get_heatmap(torch.unsqueeze(data_high_mean, 0)) + 1.0 * img_org
         plot_2d_heatmap(hmp, title="{}_real_image".format(method))

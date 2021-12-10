@@ -14,7 +14,6 @@ import torch.nn.functional as F
 import torchvision
 import torchvision.datasets as dataset
 import torchvision.transforms as transforms
-import params
 import matplotlib.pyplot as plt
 import seaborn as sns
 import math
@@ -65,8 +64,6 @@ def plot_qos_shift(data_high, data_low, method=None, y_title=None):
     plt.show()
 
 def plot_2d_heatmap(heatmap, title=None, append_score=False, score=None, score_2=None):
-    # heatmap = .5 * get_heatmap(torch.unsqueeze(data_test, 0))  + 1. * img_org
-    # heatmap = get_heatmap(torch.unsqueeze(heatmap, 0))
     if append_score:
         size = 30, 112, 3
         m = np.zeros(size, dtype=np.uint8)
@@ -86,19 +83,25 @@ def main():
     methods = ["BRISQUE", "MagFace", "FaceQnet", "Serfiq"]
 
     for method in methods:
-        data_high_mean, data_high_std, data_high_median, data_high_std_median = load_stored_data(path="./activation_weights/{}_high.npy".format(method))
+        '''
+        statistics derived from high quality samples
+        '''
+        data_high_mean, data_high_std, data_high_median, data_high_std_median = load_stored_data(path="./data/{}_high.npy".format(method))
         print("High: ", torch.max(data_high_std), torch.min(data_high_std))
 
         # Mean average mapping for high
         plot_2d_heatmap(get_heatmap(torch.unsqueeze(data_high_mean, 0)) , title="{}_high_mean".format(method))
         plot_2d_heatmap(get_heatmap(torch.unsqueeze(data_high_std.div(data_high_std.max()), 0)), title="{}_high_std".format(method))
 
-        # Median average mapping
+        # Median average mapping for high
         plot_2d_heatmap(get_heatmap(torch.unsqueeze(data_high_median, 0)), title="{}_high_median".format(method))
         plot_2d_heatmap(get_heatmap(torch.unsqueeze(data_high_std_median.div(data_high_std_median.max()), 0)),
                         title="{}_high_std_median".format(method))
 
-        data_low_mean, data_low_std, data_low_median, data_low_std_median = load_stored_data(path="./activation_weights/{}_low.npy".format(method))
+        '''
+        statistics derived from low quality samples
+        '''
+        data_low_mean, data_low_std, data_low_median, data_low_std_median = load_stored_data(path="./data/{}_low.npy".format(method))
         print("Low: ", torch.max(data_low_std), torch.min(data_low_std))
 
         # Mean average mapping for low
@@ -110,9 +113,16 @@ def main():
         plot_2d_heatmap(get_heatmap(torch.unsqueeze(data_low_std_median.div(data_low_std_median.max()), 0)),
                         title="{}_low_std".format(method))
 
+        '''
+        derivation from higher order statistics
+        '''
         plot_qos_shift(torch.flatten(data_high_std), torch.flatten(data_low_std), method="{}_std".format(method), y_title="std_median")
         plot_qos_shift(torch.flatten(data_high_median), torch.flatten(data_low_median), method="{}_mean".format(method), y_title="median")
 
+
+        '''
+        Deviation maps
+        '''
         # variance with mean difference
         diff = torch.abs(data_high_std - data_low_std)
         print("Diff: ", torch.max(diff), torch.min(diff))
@@ -122,11 +132,18 @@ def main():
         diff = torch.abs(data_high_std_median - data_low_std_median)
         plot_2d_heatmap(get_heatmap(torch.unsqueeze(diff.div(diff.max()), 0)), title="{}_diff_std_median".format(method))
 
-        # overlap with groundtruth image
+
+        '''overlap with groundtruth image using example images'''
         img_org = get_item(
-            "data/n004999/0015_01.jpg")
+            "./samples/example_image.jpg")
         # single image activation map
-        hmp = 0.5 * get_heatmap(torch.unsqueeze(data_high_mean, 0)) + 1.0 * img_org
+        img_activation = np.load("./samples/example_image.npy")
+        img_activation = torch.unsqueeze(torch.from_numpy(img_activation), 0)
+        # deviation from the high template
+        diff_abs = torch.abs(data_high_mean - img_activation)
+
+        # visualize the output
+        hmp = 0.5 * get_heatmap(torch.unsqueeze(diff_abs.div(torch.max(diff_abs)), 0)) + 1.0 * img_org
         plot_2d_heatmap(hmp, title="{}_real_image".format(method))
 
 if __name__ == '__main__':
